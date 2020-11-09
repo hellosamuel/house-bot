@@ -47,6 +47,6 @@ slackEvents.on('message', async event => {
 
 app.use('/slack/events', slackEvents.requestListener())
 
-createServer(app).listen(8080, () => {
+createServer(app).listen(process.env.PORT || 8080, () => {
   console.log('run house bot')
 })
