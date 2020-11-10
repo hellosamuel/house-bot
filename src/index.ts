@@ -78,6 +78,7 @@ slackEvents.on('message', async event => {
       text: 'はい！これから、1時間ごとに報告します！',
       channel: event.channel
     })
+    setTimeout(sendResult, 0) // 1回実行
     if (!interval) {
       interval = setInterval(sendResult, intervalTime)
     }
