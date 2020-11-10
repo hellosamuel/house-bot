@@ -42,7 +42,7 @@ const getUrInformation = async (): Promise<UrHouse[]> => {
   })
 }
 
-const intervalTime = 1000 * 60 * 60 // 1hour
+const intervalTime = 1000 * 60 * 30 // 1hour
 let interval: NodeJS.Timeout
 const sendResult = async () => {
   const result = await getUrInformation()
@@ -54,13 +54,12 @@ const sendResult = async () => {
     })
   }
 
-  texts.forEach(text => {
-    webClient.chat.postMessage({
+  for (const text of texts) {
+    await webClient.chat.postMessage({
       text,
       channel: channelName
     })
-  })
-
+  }
 }
 
 slackEvents.on('message', async event => {
@@ -75,7 +74,7 @@ slackEvents.on('message', async event => {
 
   if (event.text === '教えて！') {
     webClient.chat.postMessage({
-      text: 'はい！これから、1時間ごとに報告します！',
+      text: 'はい！これから、30分ごとに報告します！',
       channel: event.channel
     })
     setTimeout(sendResult, 0) // 1回実行
