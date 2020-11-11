@@ -29,12 +29,19 @@ const getUrInformation = async (): Promise<UrHouse[]> => {
   return new Promise(resolve => {
     fetch(
       'https://chintai.sumai.ur-net.go.jp/chintai/api/bukken/detail/detail_bukken_room/',
-      { method: 'post', body: JSON.stringify(bodyJson), headers: { 'Content-Type': 'application/json' } },
+      {
+        method: 'post',
+        body: JSON.stringify(bodyJson),
+        headers: { 'Content-Type': 'application/json' },
+      }
     )
       .then(res => res.json())
       .then(json => {
         if (json) {
-          const result = json.map((house: UrHouse) => ({ madori: house.madori, roomDetailLink: house.roomDetailLink }))
+          const result = json.map((house: UrHouse) => ({
+            madori: house.madori,
+            roomDetailLink: `https://www.ur-net.go.jp${house.roomDetailLink}`,
+          }))
           return resolve(result)
         }
         return resolve([])
@@ -42,22 +49,25 @@ const getUrInformation = async (): Promise<UrHouse[]> => {
   })
 }
 
-const intervalTime = 1000 * 60 * 30 // 1hour
+const intervalTime = 1000 * 60 * 30 // 30min
 let interval: NodeJS.Timeout
 const sendResult = async () => {
   const result = await getUrInformation()
-  const texts = ['フレーシェル王子神谷 (東京都北区)　空室状況の報告', `現在空室は：${result.length}件`]
+  const texts = [
+    'フレーシェル王子神谷 (東京都北区)　空室状況の報告',
+    `現在空室は：${result.length}件`,
+  ]
 
   if (result) {
     result.forEach(item => {
-       texts.push(`- 間取り：${item.madori} - Link：${item.roomDetailLink}`)
+      texts.push(`- 間取り：${item.madori}\n - Link：${item.roomDetailLink}`)
     })
   }
 
   for (const text of texts) {
     await webClient.chat.postMessage({
       text,
-      channel: channelName
+      channel: channelName,
     })
   }
 }
@@ -68,26 +78,26 @@ slackEvents.on('message', async event => {
   if (event.text === 'お元気ですか？') {
     webClient.chat.postMessage({
       text: 'はい！私は元気です！',
-      channel: event.channel
+      channel: event.channel,
     })
-  }
-
-  if (event.text === '教えて！') {
+  } else if (event.text === '今かい？！') {
+    sendResult()
+  } else if (event.text === '教えて！') {
     webClient.chat.postMessage({
       text: 'はい！これから、30分ごとに報告します！',
-      channel: event.channel
+      channel: event.channel,
     })
     setTimeout(sendResult, 0) // 1回実行
     if (!interval) {
+      console.log('start interval')
       interval = setInterval(sendResult, intervalTime)
     }
-  }
-
-  if (event.text === 'やめて！') {
+  } else if (event.text === 'やめて！') {
     webClient.chat.postMessage({
       text: 'はい！、報告をやめます！',
-      channel: event.channel
+      channel: event.channel,
     })
+    console.log('clear interval')
     clearInterval(interval)
     interval = undefined
   }
@@ -95,6 +105,6 @@ slackEvents.on('message', async event => {
 
 app.use('/slack/events', slackEvents.requestListener())
 
-createServer(app).listen(process.env.PORT || 8080, () => {
+createServer(app).listen(process.env.PORT || 5000, () => {
   console.log('run house bot')
 })
