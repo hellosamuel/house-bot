@@ -9,22 +9,21 @@ const slackEvents = createEventAdapter(process.env.SIGNING_SECRET)
 const webClient = new WebClient(process.env.BOT_USER_OAUTH_ACCESS_TOKEN)
 const channelName = process.env.CHANNEL_NAME
 
-const urListForCheck = [
-  { name: 'フレーシェル王子神谷 (東京都北区)', danchi: 600 },
-  { name: 'フレール西経堂 (東京都世田谷区)', danchi: 544 },
-]
-
-const globalTypeCondition = ['2LDK', '3K', '3DK', '3LDK']
-
-interface UrHouse {
-  name: string
-  madori: string
-  roomDetailLink: string
+const checkConditions = (house: { type: string; floor: string }): boolean => {
+  const checkType = ['2LDK', '3K', '3DK', '3LDK'].includes(house.type)
+  const checkFloor = parseInt(house.floor.split('階')[0] || '0', 10) >= 2
+  return checkType && checkFloor
 }
 
 interface Param {
   name: string
   danchi: number
+}
+
+interface UrHouse {
+  name: string
+  madori: string
+  roomDetailLink: string
 }
 
 const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
@@ -48,7 +47,7 @@ const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
       .then(json => {
         if (Array.isArray(json)) {
           const result = json.reduce((results, house) => {
-            if (globalTypeCondition.includes(house.type)) {
+            if (checkConditions(house)) {
               const info: UrHouse = {
                 name: param.name,
                 madori: house.madori,
@@ -65,8 +64,10 @@ const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
   })
 }
 
-const intervalTime = 1000 * 60 * 30 // 30min
-let interval: NodeJS.Timeout
+const urListForCheck = [
+  { name: 'フレーシェル王子神谷 (東京都北区)', danchi: 600 },
+  { name: 'フレール西経堂 (東京都世田谷区)', danchi: 544 },
+]
 const sendResult = async () => {
   const results = await Promise.all(urListForCheck.map(ur => getUrInformation(ur)))
   const messages = []
@@ -79,6 +80,10 @@ const sendResult = async () => {
     }
   })
 
+  if (!messages.length) {
+    messages.push('検索結果なし。')
+  }
+
   for (const message of messages) {
     await webClient.chat.postMessage({
       text: message,
@@ -86,6 +91,9 @@ const sendResult = async () => {
     })
   }
 }
+
+const intervalTime = 1000 * 60 * 30 // 30min
+let interval: NodeJS.Timeout
 
 slackEvents.on('message', async event => {
   console.log(event)
