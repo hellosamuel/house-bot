@@ -4,8 +4,9 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "tsc && node ./dist/index.js",
-    "dev:start": "ts-node-dev ./src/index.ts"
+    "start": "node ./dist/index.js",
+    "dev:start": "ts-node-dev ./src/index.ts",
+    "preinstall": "tsc"
   },
   "devDependencies": {
     "@types/express": "^4.17.8",
