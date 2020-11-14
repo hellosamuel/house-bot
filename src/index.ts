@@ -9,16 +9,26 @@ const slackEvents = createEventAdapter(process.env.SIGNING_SECRET)
 const webClient = new WebClient(process.env.BOT_USER_OAUTH_ACCESS_TOKEN)
 const channelName = process.env.CHANNEL_NAME
 
+const urListForCheck = [
+  { name: 'フレーシェル王子神谷 (東京都北区)', danchi: 600 },
+  { name: 'フレール西経堂 (東京都世田谷区)', danchi: 544 },
+]
+
 interface UrHouse {
+  name: string
   madori: string
   roomDetailLink: string
 }
 
-const getUrInformation = async (): Promise<UrHouse[]> => {
-  // フレーシェル王子神谷 (東京都北区)
+interface Param {
+  name: string
+  danchi: number
+}
+
+const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
   const bodyJson = {
     shisya: 20,
-    danchi: 600,
+    danchi: param.danchi,
     shikibetu: 0,
     orderByField: 0,
     orderBySort: 0,
@@ -27,24 +37,22 @@ const getUrInformation = async (): Promise<UrHouse[]> => {
   }
 
   return new Promise(resolve => {
-    fetch(
-      'https://chintai.sumai.ur-net.go.jp/chintai/api/bukken/detail/detail_bukken_room/',
-      {
-        method: 'post',
-        body: JSON.stringify(bodyJson),
-        headers: { 'Content-Type': 'application/json' },
-      }
-    )
+    fetch('https://chintai.sumai.ur-net.go.jp/chintai/api/bukken/detail/detail_bukken_room/', {
+      method: 'post',
+      body: JSON.stringify(bodyJson),
+      headers: { 'Content-Type': 'application/json' },
+    })
       .then(res => res.json())
       .then(json => {
         if (json) {
           const result = json.map((house: UrHouse) => ({
+            name: param.name,
             madori: house.madori,
             roomDetailLink: `https://www.ur-net.go.jp${house.roomDetailLink}`,
           }))
           return resolve(result)
         }
-        return resolve([])
+        return resolve()
       })
   })
 }
@@ -52,21 +60,20 @@ const getUrInformation = async (): Promise<UrHouse[]> => {
 const intervalTime = 1000 * 60 * 30 // 30min
 let interval: NodeJS.Timeout
 const sendResult = async () => {
-  const result = await getUrInformation()
-  const texts = [
-    'フレーシェル王子神谷 (東京都北区)　空室状況の報告',
-    `現在空室は：${result.length}件`,
-  ]
+  const results = await Promise.all(urListForCheck.map(ur => getUrInformation(ur)))
+  const messages = []
+  results.forEach(result => {
+    if (result) {
+      messages.push(`${result[0].name} => ${result.length}件`)
+      result.forEach(item => {
+        messages.push(`- 間取り：${item.madori}\n - Link：${item.roomDetailLink}`)
+      })
+    }
+  })
 
-  if (result) {
-    result.forEach(item => {
-      texts.push(`- 間取り：${item.madori}\n - Link：${item.roomDetailLink}`)
-    })
-  }
-
-  for (const text of texts) {
+  for (const message of messages) {
     await webClient.chat.postMessage({
-      text,
+      text: message,
       channel: channelName,
     })
   }
@@ -87,7 +94,7 @@ slackEvents.on('message', async event => {
       text: 'はい！これから、30分ごとに報告します！',
       channel: event.channel,
     })
-    setTimeout(sendResult, 0) // 1回実行
+    sendResult()
     if (!interval) {
       console.log('start interval')
       interval = setInterval(sendResult, intervalTime)
@@ -105,6 +112,7 @@ slackEvents.on('message', async event => {
 
 app.use('/slack/events', slackEvents.requestListener())
 
-createServer(app).listen(process.env.PORT || 5000, () => {
-  console.log('run house bot')
+const port = process.env.PORT || 5000
+createServer(app).listen(port, () => {
+  console.log(`House-Bot is running on PORT:${port}`)
 })
