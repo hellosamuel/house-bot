@@ -44,7 +44,7 @@ const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
     })
       .then(res => res.json())
       .then(json => {
-        if (json) {
+        if (json && Array.isArray(json)) {
           const result = json.map((house: UrHouse) => ({
             name: param.name,
             madori: house.madori,
