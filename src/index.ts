@@ -14,6 +14,8 @@ const urListForCheck = [
   { name: 'フレール西経堂 (東京都世田谷区)', danchi: 544 },
 ]
 
+const globalTypeCondition = ['2LDK', '3K', '3DK', '3LDK']
+
 interface UrHouse {
   name: string
   madori: string
@@ -44,15 +46,21 @@ const getUrInformation = async (param: Param): Promise<UrHouse[]> => {
     })
       .then(res => res.json())
       .then(json => {
-        if (json && Array.isArray(json)) {
-          const result = json.map((house: UrHouse) => ({
-            name: param.name,
-            madori: house.madori,
-            roomDetailLink: `https://www.ur-net.go.jp${house.roomDetailLink}`,
-          }))
+        if (Array.isArray(json)) {
+          const result = json.reduce((results, house) => {
+            if (globalTypeCondition.includes(house.type)) {
+              const info: UrHouse = {
+                name: param.name,
+                madori: house.madori,
+                roomDetailLink: `https://www.ur-net.go.jp${house.roomDetailLink}`,
+              }
+              results.push(info)
+            }
+            return results
+          }, [])
           return resolve(result)
         }
-        return resolve()
+        return resolve([])
       })
   })
 }
@@ -63,7 +71,7 @@ const sendResult = async () => {
   const results = await Promise.all(urListForCheck.map(ur => getUrInformation(ur)))
   const messages = []
   results.forEach(result => {
-    if (result) {
+    if (result.length) {
       messages.push(`${result[0].name} => ${result.length}件`)
       result.forEach(item => {
         messages.push(`- 間取り：${item.madori}\n - Link：${item.roomDetailLink}`)
