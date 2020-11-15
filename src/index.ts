@@ -9,10 +9,23 @@ const slackEvents = createEventAdapter(process.env.SIGNING_SECRET)
 const webClient = new WebClient(process.env.BOT_USER_OAUTH_ACCESS_TOKEN)
 const channelName = process.env.CHANNEL_NAME
 
-const checkConditions = (house: { type: string; floor: string }): boolean => {
+interface HouseParam {
+  type: string
+  floor: string
+  rent: string
+  commonfee: string
+}
+const checkConditions = (house: HouseParam): boolean => {
   const checkType = ['2LDK', '3K', '3DK', '3LDK'].includes(house.type)
-  const checkFloor = parseInt(house.floor.split('階')[0] || '0', 10) >= 2
-  return checkType && checkFloor
+
+  const floor = parseInt(house.floor.replace('階', ''), 10) || 0
+  const checkFloor = floor >= 2
+
+  const reg = /(,|円)/gi
+  const totalRent = parseInt(house.rent.replace(reg, ''), 10) + parseInt(house.commonfee.replace(reg, ''), 10)
+  const checkTotalRent = totalRent <= 200000
+
+  return checkType && checkFloor && checkTotalRent
 }
 
 interface Param {
